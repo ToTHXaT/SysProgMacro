@@ -1,0 +1,16 @@
+mov ax, bx
+
+m1 macro a, b, c=1
+    mov cx, dx
+    byte 1
+    word 'Hello, world'
+mend
+
+mov bx, cx
+m2 1, 2
+
+m2 macro a, b, c=1
+    mov cx, dx
+    byte 1
+    word 'Hello, world'
+mend
