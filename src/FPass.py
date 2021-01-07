@@ -12,8 +12,8 @@ def do_first_pass(src_lines: str):
     lines: List[Tuple[int, str]] = list(yield_lines(src_lines))
 
     line_ind = 0
-    is_rec = False
     md: MacroDef = MacroDef('', [], [])
+    level = 0
 
     while True:
         try:
@@ -24,6 +24,7 @@ def do_first_pass(src_lines: str):
         if is_macrodef(line):
             md = parse_macrodef(line, simple=True)
             is_rec = True
+            level += 1
 
             if TIM.get(md.name):
                 raise MacroError(i, f'{md.name} - macro name duplicate')
@@ -31,10 +32,10 @@ def do_first_pass(src_lines: str):
             TIM[md.name] = (TMO.__len__(), -1)
             TMO.append(line)
         elif is_mend(line):
-            is_rec = False
+            level -= 1
             TIM[md.name] = (TIM.get(md.name)[0], TMO.__len__() - 1)
         else:
-            if is_rec:
+            if level:
                 TMO.append(line)
             else:
                 res_lines.append((i, line))

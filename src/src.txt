@@ -4,6 +4,10 @@ m1 macro a, b, c=1
     mov cx, dx
     byte 1
     word 'Hello, world'
+    m3 macro
+        mov ax, bx
+        jmp L1
+    mend
 mend
 
 mov bx, cx
