@@ -4,8 +4,7 @@ from .LineParser import *
 
 TMO: List[str] = []
 TIM: Dict[str, Tuple[int, int]] = {}
-
-_tmo = 0
+res_lines: List[Tuple[int, str]] = []
 
 
 def do_first_pass(src_lines: str):
@@ -15,7 +14,6 @@ def do_first_pass(src_lines: str):
     line_ind = 0
     is_rec = False
     md: MacroDef = MacroDef('', [], [])
-    res_lines: List[str] = []
 
     while True:
         try:
@@ -39,16 +37,22 @@ def do_first_pass(src_lines: str):
             if is_rec:
                 TMO.append(line)
             else:
-                res_lines.append(line)
+                res_lines.append((i, line))
 
         line_ind += 1
 
 
-    from pprint import pprint
-    pprint(TMO)
-    pprint(TIM)
-    pprint(res_lines)
-
 with open('src/src.txt', 'r') as file:
     src = '\n'.join(file.readlines())
     do_first_pass(src)
+
+    from pprint import pprint
+    print()
+    print(' ------ FIRST PASS ------ ')
+    pprint(TMO)
+    print()
+    pprint(TIM)
+    print()
+    pprint(res_lines)
+    print(' ****** FIRST PASS ****** ')
+    print()
