@@ -34,7 +34,7 @@ def shlex_split(line: str, delim: str):
         raise Exception(e)
 
 
-class MacroDef(NamedTuple):
+class Macro(NamedTuple):
     name: str
     pargs: List[Tuple[str, Optional[str]]]
     kargs: List[Tuple[str, Optional[str]]]
@@ -116,11 +116,11 @@ def parse_macrodef(line: str, *, simple=False):
         raise MacroError(0, f'Invalid macro name {label}')
 
     if simple:
-        return MacroDef(label, [], [])
+        return Macro(label, [], [])
 
     pargs, kargs = parse_params(args)
 
-    return MacroDef(label, pargs, kargs)
+    return Macro(label, pargs, kargs)
 
 
 class Command(NamedTuple):
@@ -135,7 +135,7 @@ class MacroInv(NamedTuple):
     kargs: List[Tuple[str, Optional[str]]]
 
 
-def parse_line(line: str, TIM: Dict[str, Tuple[int, int]]) -> Union[MacroDef, Mend, Command, MacroInv]:
+def parse_line(line: str, TIM: Dict[str, Tuple[int, int]]) -> Union[Macro, Mend, Command, MacroInv]:
     if is_macrodef(line):
         return parse_macrodef(line)
     if is_mend(line):

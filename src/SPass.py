@@ -6,37 +6,79 @@ output_lines: List[str] = []
 stack = []
 
 
-def macrogen():
-    pass
+class Global(NamedTuple):
+    vars: Dict[str, str]
+
+
+class MacroGen(NamedTuple):
+    kargs: List[Tuple[str, None]]
+    pargs: List[Tuple[str, str]]
+
+    vars: Dict[str, str]
+
+
+class MacroDef(NamedTuple):
+    level: int
+
+
+class If(NamedTuple):
+    condition: str
+    vars: Dict[str, str]
+
+
+class While(NamedTuple):
+    condition: str
+    vars: Dict[str, str]
 
 
 def do_second_pass(src_lines: List[Tuple[int, str]]):
     ln_ind = 0
     reg = False
-    level = 1
+    stack.append(Global({}))
 
     while True:
-        try:
-            i, line = src_lines[ln_ind]
-        except IndexError:
-            break
 
-        pl = parse_line(line, TIM)
+        curr = stack[-1]
 
-        if type(pl) is Command:
-            output_lines.append(line)
+        if type(curr) is Global:
+            try:
+                i, line = src_lines[ln_ind]
+                ln_ind += 1
+            except IndexError:
+                break
 
-        elif type(pl) is MacroInv:
-            pass#MacroGen
+            pl = parse_line(line, TIM)
 
-        elif type(pl) is MacroDef:
-            if TIM.get(pl.name):
-                raise MacroError(i, f'{pl.name} - macro name duplicate')
+            if type(pl) is Command:
+                output_lines.append(line)
 
-            TIM[pl.name] = (TMO.__len__(), -1)
-            TMO.append(line)
+            elif type(pl) is MacroInv:
+                st, en = TIM.get(pl.name)
+                macro_def_line = TMO[st: en + 1]
+                macro = parse_macrodef(macro_def_line[0])
 
-        elif type(pl) is Mend:
+                stack.append(MacroGen(macro.pargs, macro.kargs, {}))
+
+            elif type(pl) is Macro:
+                if TIM.get(pl.name):
+                    raise MacroError(i, f'{pl.name} - macro name duplicate')
+
+                TIM[pl.name] = (TMO.__len__(), -1)
+                TMO.append(line)
+
+            elif type(pl) is Mend:
+                pass
+
+        elif type(curr) is MacroDef:
+            pass
+
+        elif type(curr) is MacroInv:
+            pass
+
+        elif type(curr) is If:
+            pass
+
+        elif type(curr) is While:
             pass
 
 

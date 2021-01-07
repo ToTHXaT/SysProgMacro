@@ -12,7 +12,7 @@ def do_first_pass(src_lines: str):
     lines: List[Tuple[int, str]] = list(yield_lines(src_lines))
 
     line_ind = 0
-    md: MacroDef = MacroDef('', [], [])
+    md: Macro = Macro('', [], [])
     level = 0
 
     while True:
