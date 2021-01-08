@@ -54,16 +54,16 @@ def remove_whitespaces(text: str):
 
 
 def is_macrodef(line: str):
-    return bool(re.fullmatch(r"^\w+ macro( .*)+$", line, re.MULTILINE | re.IGNORECASE))
+    return bool(re.fullmatch(r"^\w+ macro(( .*)+$|$)", line.strip(), re.MULTILINE | re.IGNORECASE))
 
 
 def is_mend(line: str) -> bool:
-    return bool(re.fullmatch(r"^mend$", line))
+    return bool(re.fullmatch(r"^mend$", line.strip()))
 
 
 def is_cmd(line: str) -> bool:
     try:
-        return type(parse_line(line)) is Command
+        return type(parse_line(line, {})) is Command
     except MacroError:
         return False
 
@@ -109,8 +109,9 @@ def parse_params(args: str, *, strict=True) -> Tuple[List[Tuple[str, None]], Lis
 
 
 def parse_macrodef(line: str, *, simple=False):
+    label, _, *args = line.split(None, 2)
 
-    label, _, args = line.split(' ', 2)
+    args = ''.join(args)
 
     if not label.isidentifier():
         raise MacroError(0, f'Invalid macro name {label}')
@@ -118,7 +119,11 @@ def parse_macrodef(line: str, *, simple=False):
     if simple:
         return Macro(label, [], [])
 
-    pargs, kargs = parse_params(args)
+    if not args:
+        pargs = []
+        kargs = []
+    else:
+        pargs, kargs = parse_params(args)
 
     return Macro(label, pargs, kargs)
 

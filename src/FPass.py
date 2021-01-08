@@ -22,18 +22,26 @@ def do_first_pass(src_lines: str):
             break
 
         if is_macrodef(line):
-            md = parse_macrodef(line, simple=True)
-            is_rec = True
+            if level == 0:
+                md = parse_macrodef(line, simple=True)
+                is_rec = True
+
             level += 1
 
-            if TIM.get(md.name):
-                raise MacroError(i, f'{md.name} - macro name duplicate')
+            if level == 1:
+                if TIM.get(md.name):
+                    raise MacroError(i, f'{md.name} - macro name duplicate')
 
-            TIM[md.name] = (TMO.__len__(), -1)
+                TIM[md.name] = (TMO.__len__(), -1)
+
             TMO.append(line)
         elif is_mend(line):
             level -= 1
-            TIM[md.name] = (TIM.get(md.name)[0], TMO.__len__() - 1)
+            if level == 0:
+                is_rec = False
+                TIM[md.name] = (TIM.get(md.name)[0], TMO.__len__() - 1)
+            else:
+                TMO.append(line)
         else:
             if level:
                 TMO.append(line)
