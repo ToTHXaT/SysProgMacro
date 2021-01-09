@@ -1,20 +1,17 @@
-
-m1 1, 2
-mov ax, bx
-
-m1 macro a, b, c=1
-    mov  $a, $b, $c
-    word 'Hello, world'
-    m3 macro
-        mov ax, bx
-        jmp L1
+m1 macro a, b
+    mov $a, $b
+    m2 macro c
+        byte $c
     mend
+    mov $b, $a
 mend
 
-mov bx, cx
 
-m2 macro a, b, c=1
-    mov cx, dx
-    byte 1
-    word 'Hello, world'
+
+m1 ax, bx
+m2 "Hello, world"
+
+m3 macro a, b
 mend
+
+m3 1,2
