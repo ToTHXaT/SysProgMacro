@@ -1,15 +1,19 @@
-m1 macro a, b
+m1 macro a, b, d=
     mov $a, $b
     m2 macro c
+        word $d
         byte $c
     mend
+    if $a > 10
+        jmp l1
+    else
+        jmp l2
+    endif
     mov $b, $a
+    m2 "Hello, world from m2"
 mend
 
-
-
-m1 ax, bx
-m2 "Hello, world"
+m1 ax, bx, d=5
 
 m3 macro a, b
 mend

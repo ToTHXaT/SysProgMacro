@@ -68,6 +68,22 @@ def is_cmd(line: str) -> bool:
         return False
 
 
+def is_if(line: str) -> bool:
+    return bool(re.fullmatch(r"^if(( .*)+$|$)", line.strip(), re.MULTILINE | re.IGNORECASE))
+
+
+def is_else(line: str) -> bool:
+    return bool(re.fullmatch(r"^else$", line.strip()))
+
+
+def is_endif(line: str) -> bool:
+    return bool(re.fullmatch(r"^endif$", line.strip()))
+
+
+def is_set(line: str) -> bool:
+    return bool(re.fullmatch(r"^set \w+ .+$", line.strip(), re.MULTILINE | re.IGNORECASE))
+
+
 def parse_params(args: str, *, strict=True) -> Tuple[List[Tuple[str, None]], List[Tuple[str, str]]]:
 
     _args = remove_whitespaces(args)
@@ -97,6 +113,8 @@ def parse_params(args: str, *, strict=True) -> Tuple[List[Tuple[str, None]], Lis
         elif spl.__len__() == 2:
             was_keys = True
             arg, def_val = spl
+            if def_val == '':
+                def_val = None
             kargs.append((arg, def_val))
         else:
             raise MacroError(0, f'Invalid - {arg}')
@@ -140,11 +158,30 @@ class MacroInv(NamedTuple):
     kargs: List[Tuple[str, Optional[str]]]
 
 
-def parse_line(line: str, TIM: Dict[str, Tuple[int, int]]) -> Union[Macro, Mend, Command, MacroInv]:
+class MacroIf(NamedTuple):
+    condition: str
+
+
+class MacroElse(NamedTuple):
+    pass
+
+
+class MacroEndif(NamedTuple):
+    pass
+
+
+def parse_line(line: str, TIM: Dict[str, Tuple[int, int]]) \
+        -> Union[Macro, Mend, Command, MacroInv, MacroIf, MacroElse, MacroEndif]:
     if is_macrodef(line):
         return parse_macrodef(line)
     if is_mend(line):
         return Mend()
+    if is_if(line):
+        return MacroIf(line.split(None, 1)[1])
+    if is_else(line):
+        return MacroElse()
+    if is_endif(line):
+        return MacroEndif()
 
     try:
         line = line.strip()

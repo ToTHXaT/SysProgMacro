@@ -17,8 +17,8 @@ class MacroDef(NamedTuple):
 
 
 class If(NamedTuple):
-    condition: str
     vars: Dict[str, str]
+    status: str
 
 
 class While(NamedTuple):
@@ -60,7 +60,7 @@ def macro_inv_handle(i, pl: MacroInv):
     if diff:
         raise MacroError(i, f'Unknown parameter `{", ".join(diff)}`')
 
-    kargs = {**dict(pl.kargs), **dict(macro_def.kargs)}
+    kargs = {**dict(macro_def.kargs), **dict(pl.kargs)}
 
     for k, v in kargs.items():
         if v is None:
@@ -97,16 +97,6 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
 
                 macro_inv_handle(i, pl)
 
-            # elif type(pl) is Macro:
-            #     if TIM.get(pl.name):
-            #         raise MacroError(i, f'{pl.name} - macro name duplicate')
-            #
-            #     TIM[pl.name] = (TMO.__len__(), -1)
-            #     TMO.append(line)
-            #
-            # elif type(pl) is Mend:
-            #     pass
-
         elif type(curr) is MacroGen:
             try:
                 mg: MacroGen = curr
@@ -132,6 +122,7 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                 while True:
                     try:
                         line = lines[0]
+                        line = insert_vars(line)
                         i = mg.name
                     except IndexError:
                         break
@@ -165,14 +156,17 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
 
                     lines.pop(0)
 
+            elif type(pl) is MacroIf:
+                iff: MacroIf = pl
+
+                stack.append(If(iff.condition, {}, 'if'))
+
+
             elif type(pl) is Mend:
                 pass
 
             elif type(pl) is MacroInv:
                 macro_inv_handle(pl.name or '-', pl)
-
-        elif type(curr) is MacroDef:
-            pass
 
         elif type(curr) is If:
             pass
