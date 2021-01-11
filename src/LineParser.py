@@ -23,7 +23,6 @@ def yield_lines(src: str) -> Generator[Tuple[int, str], None, None]:
 
 
 def shlex_split(line: str, delim: str):
-
     try:
         line = line.strip()
         shl = shlex(line, posix=False)
@@ -84,8 +83,23 @@ def is_set(line: str) -> bool:
     return bool(re.fullmatch(r"^set \w+ .+$", line.strip(), re.MULTILINE | re.IGNORECASE))
 
 
-def parse_params(args: str, *, strict=True) -> Tuple[List[Tuple[str, None]], List[Tuple[str, str]]]:
+def is_while(line: str) -> bool:
+    return bool(re.fullmatch(r"^while(( .*)+$|$)", line.strip(), re.MULTILINE | re.IGNORECASE))
 
+
+def is_wend(line: str) -> bool:
+    return bool(re.fullmatch(r"^wend$", line.strip()))
+
+
+def is_inc(line: str) -> bool:
+    return bool(re.fullmatch(r'^inc [\w$]+$', line.strip(), re.MULTILINE | re.IGNORECASE))
+
+
+def is_dec(line: str) -> bool:
+    return bool(re.fullmatch(r'^inc [\w$]+$', line.strip(), re.MULTILINE | re.IGNORECASE))
+
+
+def parse_params(args: str, *, strict=True) -> Tuple[List[Tuple[str, None]], List[Tuple[str, str]]]:
     _args = remove_whitespaces(args)
 
     cmm = re.compile(r",(?=(?:[^\"']*[\"'][^\"']*[\"'])*[^\"']*$)")
@@ -170,8 +184,30 @@ class MacroEndif(NamedTuple):
     pass
 
 
+class MacroWhile(NamedTuple):
+    condition: str
+
+
+class MacroWend(NamedTuple):
+    pass
+
+
+class MacroSet(NamedTuple):
+    arg: str
+    val: str
+
+
+class MacroInc(NamedTuple):
+    var: str
+
+
+class MacroDec(NamedTuple):
+    var: str
+
+
 def parse_line(line: str, TIM: Dict[str, Tuple[int, int]]) \
-        -> Union[Macro, Mend, Command, MacroInv, MacroIf, MacroElse, MacroEndif]:
+        -> Union[Macro, Mend, Command, MacroInv, MacroIf, MacroElse, MacroEndif,
+                 MacroWhile, MacroWend, MacroSet, MacroInc, MacroDec]:
     if is_macrodef(line):
         return parse_macrodef(line)
     if is_mend(line):
@@ -182,6 +218,19 @@ def parse_line(line: str, TIM: Dict[str, Tuple[int, int]]) \
         return MacroElse()
     if is_endif(line):
         return MacroEndif()
+    if is_while(line):
+        return MacroWhile(line.split(None, 1)[1])
+    if is_wend(line):
+        return MacroWend()
+    if is_set(line):
+        _, arg, val = line.strip().split(None, 2)
+        return MacroSet(arg, val)
+    if is_inc(line):
+        _, var = line.strip().split(None, 1)
+        return MacroInc(var)
+    if is_dec(line):
+        _, var = line.strip().split(None, 1)
+        return MacroDec(var)
 
     try:
         line = line.strip()

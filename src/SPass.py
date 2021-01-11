@@ -1,5 +1,6 @@
 from .FPass import TMO, TIM, res_lines
 from .LineParser import *
+from .MyNum import MyNum
 
 
 class Global(NamedTuple):
@@ -17,13 +18,19 @@ class MacroDef(NamedTuple):
 
 
 class If(NamedTuple):
+    name: str
     vars: Dict[str, str]
-    status: str
+    status: bool
+    body: List[str]
 
 
 class While(NamedTuple):
+    name: str
     condition: str
     vars: Dict[str, str]
+    status: bool
+    body: List[str]
+    copy_body: List[str]
 
 
 output_lines: List[str] = []
@@ -97,7 +104,8 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
 
                 macro_inv_handle(i, pl)
 
-        elif type(curr) is MacroGen:
+        elif type(curr) is MacroGen or type(curr) is If or type(curr) is While:
+
             try:
                 mg: MacroGen = curr
                 line = mg.body.pop(0)
@@ -105,11 +113,90 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                 stack.pop(-1)
                 continue
 
+            raw_line = line[:]
             line = insert_vars(line)
 
             pl = parse_line(line, TIM)
 
-            if type(pl) is Command:
+            if type(curr) is If:
+                if type(pl) is MacroElse:
+                    iff: If = stack.pop(-1)
+                    stack.append(If(curr.name + '(else)', curr.vars, not curr.status, curr.body))
+                    continue
+
+                elif type(pl) is MacroEndif:
+                    stack.pop(-1)
+                    continue
+
+                if not curr.status:
+                    continue
+
+            if type(curr) is While:
+                if type(pl) is MacroWend:
+                    whl: While = curr
+
+                    vals = {}
+                    for el in stack:
+                        vals.update(el.vars)
+
+                    _line = ' ' + whl.condition + ' '
+
+                    if line.strip().__len__() == 0:
+                        raise MacroError('-', f'No expression on if statement')
+
+                    for k, v in vals.items():
+                        _line = re.sub(rf'(?<=\W)\${k}(?=\W?|\Z)', f'MyNum({v.__repr__()})', _line, re.MULTILINE)
+
+                    result = eval(_line)
+
+                    stack.pop(-1)
+
+                    if result:
+                        stack.append(
+                            While(whl.name, whl.condition, whl.vars, result,
+                                  whl.copy_body[:], whl.copy_body)
+                        )
+
+                if not curr.status:
+                    continue
+
+            if type(pl) is MacroSet:
+                ms: MacroSet = pl
+                if not ms.arg.isidentifier():
+                    raise MacroError(f'{curr.name} -> {raw_line.strip()}', f'{ms.arg} - wrong format for variable')
+
+                if ms.arg[0] == '$':
+                    raise MacroError(f'{curr.name} -> {raw_line.strip()}', f'variable names should not contain $.')
+
+                curr.vars.update({ms.arg: ms.val})
+
+            elif type(pl) is MacroInc:
+                mi: MacroInc = pl
+
+                vals = {}
+                for el in stack:
+                    if num := el.vars.get(mi.var):
+                        try:
+                            num = int(num)
+                        except ValueError:
+                            raise MacroError(f'{curr.name} -> {raw_line.strip()}', f'{num} - is not integer')
+                        el.vars.update({mi.var: str(num + 1)})
+                    vals.update(el.vars)
+
+            elif type(pl) is MacroDec:
+                mi: MacroDec = pl
+
+                vals = {}
+                for el in stack:
+                    if num := el.vars.get(mi.var):
+                        try:
+                            num = int(num)
+                        except ValueError:
+                            raise MacroError(f'{curr.name} -> {raw_line.strip()}', f'{num} - is not integer')
+                        el.vars.update({mi.var: str(num - 1)})
+                    vals.update(el.vars)
+
+            elif type(pl) is Command:
                 output_lines.append(line)
             elif type(pl) is Macro:
 
@@ -159,8 +246,43 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
             elif type(pl) is MacroIf:
                 iff: MacroIf = pl
 
-                stack.append(If(iff.condition, {}, 'if'))
+                vals = {}
+                for el in stack:
+                    vals.update(el.vars)
 
+                _line = ' ' + raw_line.split(None, 1)[1] + ' '
+
+                if _line.strip().__len__() == 0:
+                    raise MacroError('-', f'No expression on if statement')
+
+                for k, v in vals.items():
+                    _line = re.sub(rf'(?<=\W)\${k}(?=\W?|\Z)', f'MyNum({v.__repr__()})', _line, re.MULTILINE)
+
+                result = eval(_line)
+
+                stack.append(If(stack[-1].name + f' > {raw_line.strip()}', {}, result, stack[-1].body))
+
+            elif type(pl) is MacroWhile:
+                whl: MacroWhile = pl
+
+                vals = {}
+                for el in stack:
+                    vals.update(el.vars)
+
+                _line = ' ' + raw_line.split(None, 1)[1] + ' '
+
+                if line.strip().__len__() == 0:
+                    raise MacroError('-', f'No expression on if statement')
+
+                for k, v in vals.items():
+                    _line = re.sub(rf'(?<=\W)\${k}(?=\W?|\Z)', f'MyNum({v.__repr__()})', _line, re.MULTILINE)
+
+                result = eval(_line)
+
+                stack.append(
+                    While(stack[-1].name + f' > {raw_line.strip()}', raw_line.split(None, 1)[1], {}, result,
+                          stack[-1].body, stack[-1].body[:])
+                )
 
             elif type(pl) is Mend:
                 pass
@@ -177,7 +299,10 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
 
 do_second_pass(res_lines)
 print('\n'.join(i.strip() for i in output_lines))
+print()
 
-from pprint import pprint
-pprint(TMO)
-pprint(TIM)
+for k, (st, en) in TIM.items():
+    print(f'{k}:')
+    lines = TMO[st:en + 1]
+    for line in lines:
+        print(f'  {line}')

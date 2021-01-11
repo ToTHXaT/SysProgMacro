@@ -6,6 +6,10 @@ m1 macro a, b, d=
     mend
     if $a > 10
         jmp l1
+        if $b == 20
+            byte 'b == 20'
+        endif
+        jmp l1
     else
         jmp l2
     endif
@@ -13,9 +17,24 @@ m1 macro a, b, d=
     m2 "Hello, world from m2"
 mend
 
-m1 ax, bx, d=5
+m1 11, 20, d=5
 
-m3 macro a, b
+byte 'Hello, world'
+
+mm1 macro a
+    while $a < 100
+        if $a == 60
+            set d 100
+            jmp l1
+            jmp l1
+            jmp l1
+        endif
+
+        byte $d
+
+        byte $a
+        inc a
+    wend
 mend
 
-m3 1,2
+mm1 0
