@@ -19,20 +19,11 @@ mend
 
 m1 11, 20, d=5
 
-byte 'Hello, world'
-
 mm1 macro a
-    while $a < 100
-        if $a == 60
-            set d 100
-            jmp l1
-            jmp l1
-            jmp l1
-        endif
+    while $a < 10
 
-        byte $d
+        l1 byte $a
 
-        byte $a
         inc a
     wend
 mend

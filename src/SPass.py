@@ -1,6 +1,7 @@
 from .FPass import TMO, TIM, res_lines
 from .LineParser import *
 from .MyNum import MyNum
+from uuid import uuid4
 
 
 class Global(NamedTuple):
@@ -11,6 +12,7 @@ class MacroGen(NamedTuple):
     name: str
     body: List[str]
     vars: Dict[str, str]
+    labels: Dict[str, str]
 
 
 class MacroDef(NamedTuple):
@@ -22,6 +24,7 @@ class If(NamedTuple):
     vars: Dict[str, str]
     status: bool
     body: List[str]
+    labels: Dict[str, str]
 
 
 class While(NamedTuple):
@@ -31,10 +34,20 @@ class While(NamedTuple):
     status: bool
     body: List[str]
     copy_body: List[str]
+    labels: Dict[str, str]
+    iterations: Dict[str, int]
 
 
 output_lines: List[str] = []
 stack: List[Union[Global, MacroGen, MacroDef, If, While]] = []
+
+global_num = -1
+
+
+def assign_unique_label(label: str) -> str:
+    global global_num
+    global_num += 1
+    return f'{label}_{global_num}'
 
 
 def insert_vars(line: str):
@@ -55,7 +68,7 @@ def macro_inv_handle(i, pl: MacroInv):
     macro_def = parse_macrodef(macro_head)
 
     if not (macro_def.pargs.__len__() == pl.pargs.__len__()):
-        raise MacroError(i, f'Number of required positional parameters is not satisfied')
+        raise MacroError(i, f'Number of required positional parameters is not satisfied: Expected {macro_def.pargs.__len__()}, Got {pl.pargs.__len__()}')
 
     pargs = {}
 
@@ -75,7 +88,7 @@ def macro_inv_handle(i, pl: MacroInv):
 
     args = {**pargs, **kargs}
 
-    stack.append(MacroGen(pl.name, macro_body, args))
+    stack.append(MacroGen(pl.name, macro_body, args, {}))
 
 
 def do_second_pass(src_lines: List[Tuple[int, str]]):
@@ -85,6 +98,7 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
     stack.append(Global({}))
 
     while True:
+        yield
 
         curr = stack[-1]
 
@@ -98,6 +112,8 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
             pl = parse_line(line, TIM)
 
             if type(pl) is Command:
+                if m := re.findall(r'\$\w+', line, re.MULTILINE):
+                    raise MacroError(f'{curr.name} -> {line}', f'{", ".join(m)} - unknown variables')
                 output_lines.append(line)
 
             elif type(pl) is MacroInv:
@@ -121,7 +137,7 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
             if type(curr) is If:
                 if type(pl) is MacroElse:
                     iff: If = stack.pop(-1)
-                    stack.append(If(curr.name + '(else)', curr.vars, not curr.status, curr.body))
+                    stack.append(If(curr.name + ' -> else', curr.vars, not curr.status, curr.body, {}))
                     continue
 
                 elif type(pl) is MacroEndif:
@@ -141,20 +157,25 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
 
                     _line = ' ' + whl.condition + ' '
 
-                    if line.strip().__len__() == 0:
-                        raise MacroError('-', f'No expression on if statement')
+                    if _line.strip().__len__() == 0:
+                        raise MacroError(f'{curr.name} -> {raw_line.strip()}', f'No expression on while statement')
 
                     for k, v in vals.items():
                         _line = re.sub(rf'(?<=\W)\${k}(?=\W?|\Z)', f'MyNum({v.__repr__()})', _line, re.MULTILINE)
 
-                    result = eval(_line)
+                    try:
+                        result = eval(_line)
+                    except Exception as e:
+                        raise MacroError(f'{curr.name} -> {raw_line.strip()}', str(e))
 
                     stack.pop(-1)
 
                     if result:
+                        if whl.iterations.get('num') == 1000:
+                            raise MacroError(f'{curr.name} -> {raw_line.strip()}', f'Potentially infinite loop detected')
                         stack.append(
                             While(whl.name, whl.condition, whl.vars, result,
-                                  whl.copy_body[:], whl.copy_body)
+                                  whl.copy_body[:], whl.copy_body, {}, {'num': whl.iterations.get('num') + 1})
                         )
 
                 if not curr.status:
@@ -197,7 +218,12 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                     vals.update(el.vars)
 
             elif type(pl) is Command:
-                output_lines.append(line)
+                if pl.label and (lbl := assign_unique_label(pl.label)):
+                    pl = Command(lbl, pl.cmd, pl.args)
+
+                if m := re.findall(r'\$\w+', line, re.MULTILINE):
+                    raise MacroError(f'{curr.name} -> {line}', f'{", ".join(m)} - unknown variables')
+                output_lines.append(str(pl))
             elif type(pl) is Macro:
 
                 # lines: List[Tuple[int, str]] = list(yield_lines(src_lines))
@@ -250,7 +276,10 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                 for el in stack:
                     vals.update(el.vars)
 
-                _line = ' ' + raw_line.split(None, 1)[1] + ' '
+                try:
+                    _line = ' ' + raw_line.split(None, 1)[1] + ' '
+                except IndexError:
+                    raise MacroError(f'{curr.name} -> {raw_line.strip()}', f'No expression on if statement')
 
                 if _line.strip().__len__() == 0:
                     raise MacroError('-', f'No expression on if statement')
@@ -258,9 +287,12 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                 for k, v in vals.items():
                     _line = re.sub(rf'(?<=\W)\${k}(?=\W?|\Z)', f'MyNum({v.__repr__()})', _line, re.MULTILINE)
 
-                result = eval(_line)
+                try:
+                    result = eval(_line)
+                except Exception as e:
+                    raise MacroError(f'{curr.name} -> {raw_line.strip()}', str(e))
 
-                stack.append(If(stack[-1].name + f' > {raw_line.strip()}', {}, result, stack[-1].body))
+                stack.append(If(stack[-1].name + f' > {raw_line.strip()}', {}, result, stack[-1].body, {}))
 
             elif type(pl) is MacroWhile:
                 whl: MacroWhile = pl
@@ -269,7 +301,10 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                 for el in stack:
                     vals.update(el.vars)
 
-                _line = ' ' + raw_line.split(None, 1)[1] + ' '
+                try:
+                    _line = ' ' + raw_line.split(None, 1)[1] + ' '
+                except IndexError:
+                    raise MacroError(f'{curr.name} -> {raw_line.strip()}', f'No expression on while statement')
 
                 if line.strip().__len__() == 0:
                     raise MacroError('-', f'No expression on if statement')
@@ -277,32 +312,29 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                 for k, v in vals.items():
                     _line = re.sub(rf'(?<=\W)\${k}(?=\W?|\Z)', f'MyNum({v.__repr__()})', _line, re.MULTILINE)
 
-                result = eval(_line)
+                try:
+                    result = eval(_line)
+                except Exception as e:
+                    raise MacroError(f'{curr.name} -> {raw_line.strip()}', str(e))
 
                 stack.append(
                     While(stack[-1].name + f' > {raw_line.strip()}', raw_line.split(None, 1)[1], {}, result,
-                          stack[-1].body, stack[-1].body[:])
+                          stack[-1].body, stack[-1].body[:], {}, {'num': 1})
                 )
 
             elif type(pl) is Mend:
                 pass
 
             elif type(pl) is MacroInv:
-                macro_inv_handle(pl.name or '-', pl)
-
-        elif type(curr) is If:
-            pass
-
-        elif type(curr) is While:
-            pass
+                macro_inv_handle(curr.name + ' -> ' + raw_line.strip(), pl)
 
 
-do_second_pass(res_lines)
-print('\n'.join(i.strip() for i in output_lines))
-print()
-
-for k, (st, en) in TIM.items():
-    print(f'{k}:')
-    lines = TMO[st:en + 1]
-    for line in lines:
-        print(f'  {line}')
+# do_second_pass(res_lines)
+# print('\n'.join(i.strip() for i in output_lines))
+# print()
+#
+# for k, (st, en) in TIM.items():
+#     print(f'{k}:')
+#     lines = TMO[st:en + 1]
+#     for line in lines:
+#         print(f'  {line}')

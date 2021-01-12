@@ -16,6 +16,7 @@ def do_first_pass(src_lines: str):
     level = 0
 
     while True:
+        yield
         try:
             i, line = lines[line_ind]
         except IndexError:
@@ -54,14 +55,3 @@ def do_first_pass(src_lines: str):
 with open('src/src.txt', 'r') as file:
     src = '\n'.join(file.readlines())
     do_first_pass(src)
-
-    from pprint import pprint
-    # print()
-    # print(' ------ FIRST PASS ------ ')
-    # pprint(TMO)
-    # print()
-    # pprint(TIM)
-    # print()
-    # pprint(res_lines)
-    # print(' ****** FIRST PASS ****** ')
-    # print()

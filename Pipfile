@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 pydantic = "*"
+pyqt5 = "*"
 
 [dev-packages]
 

@@ -80,7 +80,7 @@ def is_endif(line: str) -> bool:
 
 
 def is_set(line: str) -> bool:
-    return bool(re.fullmatch(r"^set \w+ .+$", line.strip(), re.MULTILINE | re.IGNORECASE))
+    return bool(re.fullmatch(r"^set [\w$]+ .+$", line.strip(), re.MULTILINE | re.IGNORECASE))
 
 
 def is_while(line: str) -> bool:
@@ -116,11 +116,11 @@ def parse_params(args: str, *, strict=True) -> Tuple[List[Tuple[str, None]], Lis
         spl = arg.split('=', 1)
 
         if spl[0].__len__ == 0:
-            raise MacroError('-', f'{arg} - invalid argument syntax')
+            raise MacroError(f'{args}', f'`{arg}` - invalid argument syntax')
 
         if spl.__len__() == 1:
             if was_keys:
-                raise MacroError('-', f'{arg} - positional args cant appear after key args')
+                raise MacroError(f'{args}', f'`{arg}` - positional args cant appear after key args')
             arg = spl[0]
             def_val = None
             pargs.append((arg, def_val))
@@ -131,11 +131,11 @@ def parse_params(args: str, *, strict=True) -> Tuple[List[Tuple[str, None]], Lis
                 def_val = None
             kargs.append((arg, def_val))
         else:
-            raise MacroError(0, f'Invalid - {arg}')
+            raise MacroError(f'{args}', f'Invalid - `{arg}`')
 
         if strict:
             if not arg.isidentifier():
-                raise MacroError(0, f'Invalid name for argument {arg}')
+                raise MacroError(f'{args}', f'Invalid name for argument `{arg}`')
 
     return pargs, kargs
 
@@ -164,6 +164,9 @@ class Command(NamedTuple):
     label: str
     cmd: str
     args: List[str]
+
+    def __str__(self):
+        return f'{self.label or ""} {self.cmd} {", ".join(self.args)}'
 
 
 class MacroInv(NamedTuple):
@@ -213,13 +216,19 @@ def parse_line(line: str, TIM: Dict[str, Tuple[int, int]]) \
     if is_mend(line):
         return Mend()
     if is_if(line):
-        return MacroIf(line.split(None, 1)[1])
+        try:
+            return MacroIf(line.split(None, 1)[1])
+        except IndexError:
+            return MacroIf('')
     if is_else(line):
         return MacroElse()
     if is_endif(line):
         return MacroEndif()
     if is_while(line):
-        return MacroWhile(line.split(None, 1)[1])
+        try:
+            return MacroWhile(line.split(None, 1)[1])
+        except IndexError:
+            return MacroWhile('')
     if is_wend(line):
         return MacroWend()
     if is_set(line):
@@ -239,7 +248,7 @@ def parse_line(line: str, TIM: Dict[str, Tuple[int, int]]) \
         shl.wordchars += '-+?~!@#$%^&*='
         sp = list(shl)
     except Exception as e:
-        raise Exception(e)
+        raise MacroError(f'{line}', f'{str(e)}')
 
     length = len(sp)
 
