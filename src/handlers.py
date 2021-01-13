@@ -3,6 +3,33 @@ from src.FPass import do_first_pass, TIM, TMO, res_lines
 from src.SPass import stack, do_second_pass, output_lines, global_num
 from src.exceptions import MacroError
 from typing import *
+from termcolor import colored
+
+
+def cli_run(src: str):
+    fpass = do_first_pass(src)
+
+    while True:
+        try:
+            fpass.__next__()
+        except StopIteration:
+            break
+        except MacroError as e:
+            print(colored(str(e), 'red', attrs=['bold']))
+            return
+
+    spass = do_second_pass(res_lines)
+
+    while True:
+        try:
+            spass.__next__()
+        except StopIteration:
+            break
+        except MacroError as e:
+            print(colored(str(e), 'red', attrs=['bold']))
+            return
+
+    return output_lines
 
 
 def set_err(mw: Ui_MainWindow, s: str):

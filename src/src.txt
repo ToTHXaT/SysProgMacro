@@ -1,3 +1,5 @@
+m1 11, 20, d=5
+
 m1 macro a, b, d=
     mov $a, $b
     m2 macro c
@@ -17,7 +19,6 @@ m1 macro a, b, d=
     m2 "Hello, world from m2"
 mend
 
-m1 11, 20, d=5
 
 mm1 macro a
     while $a < 10

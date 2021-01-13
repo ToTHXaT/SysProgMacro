@@ -6,5 +6,7 @@ reserved = [
     'sub',
     'csect',
     'save',
-    'mov'
+    'mov',
 ]
+
+regs = [f'r{i}' for i in range(15)]

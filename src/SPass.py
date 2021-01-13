@@ -72,7 +72,7 @@ def macro_inv_handle(i, pl: MacroInv):
 
     pargs = {}
 
-    for ((arg_name, _), (val, _)) in zip(macro_def.pargs, pl.pargs ):
+    for ((arg_name, _), (val, _)) in zip(macro_def.pargs, pl.pargs):
         pargs[arg_name] = val
 
     diff = set(k[0] for k in pl.kargs) - set(k[0] for k in macro_def.kargs)
@@ -114,7 +114,17 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
             if type(pl) is Command:
                 if m := re.findall(r'\$\w+', line, re.MULTILINE):
                     raise MacroError(f'{curr.name} -> {line}', f'{", ".join(m)} - unknown variables')
-                output_lines.append(line)
+
+                if pl.args.__len__() == 1:
+                    if pl.args[0] in curr.labels:
+                        pl = Command(pl.label, pl.cmd, [curr.labels[pl.args[0]]])
+                elif pl.args.__len__() == 2:
+                    if pl.args[0] in curr.labels:
+                        pl = Command(pl.label, pl.cmd, [curr.labels[pl.args[0]], pl.args[1]])
+                    if pl.args[1] in curr.labels:
+                        pl = Command(pl.label, pl.cmd, [pl.args[0], curr.labels[pl.args[1]]])
+
+                output_lines.append(str(pl))
 
             elif type(pl) is MacroInv:
 
@@ -219,10 +229,21 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
 
             elif type(pl) is Command:
                 if pl.label and (lbl := assign_unique_label(pl.label)):
+                    curr.labels[pl.label] = lbl
                     pl = Command(lbl, pl.cmd, pl.args)
 
                 if m := re.findall(r'\$\w+', line, re.MULTILINE):
                     raise MacroError(f'{curr.name} -> {line}', f'{", ".join(m)} - unknown variables')
+
+                if pl.args.__len__() == 1:
+                    if pl.args[0] in curr.labels:
+                        pl = Command(pl.label, pl.cmd, [curr.labels[pl.args[0]]])
+                elif pl.args.__len__() == 2:
+                    if pl.args[0] in curr.labels:
+                        pl = Command(pl.label, pl.cmd, [curr.labels[pl.args[0]], pl.args[1]])
+                    if pl.args[1] in curr.labels:
+                        pl = Command(pl.label, pl.cmd, [pl.args[0], curr.labels[pl.args[1]]])
+
                 output_lines.append(str(pl))
             elif type(pl) is Macro:
 
@@ -292,7 +313,7 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                 except Exception as e:
                     raise MacroError(f'{curr.name} -> {raw_line.strip()}', str(e))
 
-                stack.append(If(stack[-1].name + f' > {raw_line.strip()}', {}, result, stack[-1].body, {}))
+                stack.append(If(stack[-1].name + f' -> {raw_line.strip()}', {}, result, stack[-1].body, {}))
 
             elif type(pl) is MacroWhile:
                 whl: MacroWhile = pl
@@ -318,7 +339,7 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                     raise MacroError(f'{curr.name} -> {raw_line.strip()}', str(e))
 
                 stack.append(
-                    While(stack[-1].name + f' > {raw_line.strip()}', raw_line.split(None, 1)[1], {}, result,
+                    While(stack[-1].name + f' -> {raw_line.strip()}', raw_line.split(None, 1)[1], {}, result,
                           stack[-1].body, stack[-1].body[:], {}, {'num': 1})
                 )
 
@@ -327,14 +348,3 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
 
             elif type(pl) is MacroInv:
                 macro_inv_handle(curr.name + ' -> ' + raw_line.strip(), pl)
-
-
-# do_second_pass(res_lines)
-# print('\n'.join(i.strip() for i in output_lines))
-# print()
-#
-# for k, (st, en) in TIM.items():
-#     print(f'{k}:')
-#     lines = TMO[st:en + 1]
-#     for line in lines:
-#         print(f'  {line}')

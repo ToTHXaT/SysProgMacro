@@ -1,5 +1,6 @@
 from .exceptions import *
 from .LineParser import *
+from src.lists import reserved
 
 
 TMO: List[str] = []
@@ -31,7 +32,11 @@ def do_first_pass(src_lines: str):
 
             if level == 1:
                 if TIM.get(md.name):
-                    raise MacroError(i, f'{md.name} - macro name duplicate')
+                    raise MacroError(i, f'`{md.name}` - macro name duplicate')
+                if md.name in reserved:
+                    raise MacroError(i, f'`{md.name}` - this name is reserved')
+                if not md.name.isidentifier():
+                    raise MacroError(i, f'`{md.name}` - invalid name')
 
                 TIM[md.name] = (TMO.__len__(), -1)
 
@@ -51,7 +56,3 @@ def do_first_pass(src_lines: str):
 
         line_ind += 1
 
-
-with open('src/src.txt', 'r') as file:
-    src = '\n'.join(file.readlines())
-    do_first_pass(src)

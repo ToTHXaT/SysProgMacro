@@ -146,7 +146,7 @@ def parse_macrodef(line: str, *, simple=False):
     args = ''.join(args)
 
     if not label.isidentifier():
-        raise MacroError(0, f'Invalid macro name {label}')
+        raise MacroError(0, f'Invalid macro name `{label}`')
 
     if simple:
         return Macro(label, [], [])
@@ -283,4 +283,4 @@ def parse_line(line: str, TIM: Dict[str, Tuple[int, int]]) \
             pargs, kargs = parse_params(args, strict=False)
             return MacroInv(cmd, pargs, kargs)
 
-        raise MacroError('-', f'{label} - is neither a macro nor command')
+        raise MacroError('-', f'{label} - Invalid line.')
