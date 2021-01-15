@@ -137,6 +137,8 @@ def parse_params(args: str, *, strict=True) -> Tuple[List[Tuple[str, None]], Lis
             if not arg.isidentifier():
                 raise MacroError(f'{args}', f'Invalid name for argument `{arg}`')
 
+    if pargs:
+        raise MacroError(f'{_args}', 'Positional arguments are not allowed')
     return pargs, kargs
 
 
@@ -224,13 +226,13 @@ def parse_line(line: str, TIM: Dict[str, Tuple[int, int]]) \
         return MacroElse()
     if is_endif(line):
         return MacroEndif()
-    if is_while(line):
-        try:
-            return MacroWhile(line.split(None, 1)[1])
-        except IndexError:
-            return MacroWhile('')
-    if is_wend(line):
-        return MacroWend()
+    # if is_while(line):
+    #     try:
+    #         return MacroWhile(line.split(None, 1)[1])
+    #     except IndexError:
+    #         return MacroWhile('')
+    # if is_wend(line):
+    #     return MacroWend()
     if is_set(line):
         _, arg, val = line.strip().split(None, 2)
         return MacroSet(arg, val)
