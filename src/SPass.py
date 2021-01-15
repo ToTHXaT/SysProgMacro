@@ -25,6 +25,7 @@ class If(NamedTuple):
     status: bool
     body: List[str]
     labels: Dict[str, str]
+    level: int
 
 
 class While(NamedTuple):
@@ -148,13 +149,23 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
 
             if type(curr) is If:
                 if type(pl) is MacroElse:
-                    iff: If = stack.pop(-1)
-                    stack.append(If(curr.name + ' -> else', curr.vars, not curr.status, curr.body, {}))
-                    continue
+                    if curr.level > 1:
+                        continue
+                    else:
+                        iff: If = stack.pop(-1)
+                        stack.append(If(curr.name + ' -> else', curr.vars, not curr.status, curr.body, {}, curr.level))
+                        continue
 
                 elif type(pl) is MacroEndif:
+                    if curr.level > 1:
+                        stack.pop(-1)
+                        stack.append(If(curr.name, curr.vars, curr.status, curr.body, {}, curr.level - 1))
+                    else:
+                        stack.pop(-1)
+                        continue
+                elif type(pl) is MacroIf:
                     stack.pop(-1)
-                    continue
+                    stack.append(If(curr.name, curr.vars, curr.status, curr.body, {}, curr.level + 1))
 
                 if not curr.status:
                     continue
@@ -318,7 +329,7 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                 except Exception as e:
                     raise MacroError(f'{curr.name} -> {raw_line.strip()}', 'Type error')
 
-                stack.append(If(stack[-1].name + f' -> {raw_line.strip()}', {}, result, stack[-1].body, {}))
+                stack.append(If(stack[-1].name + f' -> {raw_line.strip()}', {}, result, stack[-1].body, {}, 1))
 
             elif type(pl) is MacroWhile:
                 whl: MacroWhile = pl
