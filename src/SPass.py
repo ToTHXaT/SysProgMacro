@@ -129,6 +129,8 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
             elif type(pl) is MacroInv:
 
                 macro_inv_handle(i, pl)
+            else:
+                raise MacroError(i, f'Innappropriate usage of {pl}')
 
         elif type(curr) is MacroGen or type(curr) is If or type(curr) is While:
 
@@ -157,7 +159,7 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                 if not curr.status:
                     continue
 
-            if type(curr) is While:
+            elif type(curr) is While:
                 if type(pl) is MacroWend:
                     whl: While = curr
 
@@ -187,6 +189,7 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                             While(whl.name, whl.condition, whl.vars, result,
                                   whl.copy_body[:], whl.copy_body, {}, {'num': whl.iterations.get('num') + 1})
                         )
+                    continue
 
                 if not curr.status:
                     continue
@@ -205,13 +208,14 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                 mi: MacroInc = pl
 
                 vals = {}
-                for el in stack:
+                for el in stack[::-1]:
                     if num := el.vars.get(mi.var):
                         try:
                             num = int(num)
                         except ValueError:
                             raise MacroError(f'{curr.name} -> {raw_line.strip()}', f'{num} - is not integer')
                         el.vars.update({mi.var: str(num + 1)})
+                        break
                     vals.update(el.vars)
 
             elif type(pl) is MacroDec:
@@ -226,6 +230,7 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                             raise MacroError(f'{curr.name} -> {raw_line.strip()}', f'{num} - is not integer')
                         el.vars.update({mi.var: str(num - 1)})
                     vals.update(el.vars)
+
 
             elif type(pl) is Command:
                 if pl.label and (lbl := assign_unique_label(pl.label)):
@@ -311,7 +316,7 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                 try:
                     result = eval(_line)
                 except Exception as e:
-                    raise MacroError(f'{curr.name} -> {raw_line.strip()}', str(e))
+                    raise MacroError(f'{curr.name} -> {raw_line.strip()}', 'Type error')
 
                 stack.append(If(stack[-1].name + f' -> {raw_line.strip()}', {}, result, stack[-1].body, {}))
 
@@ -348,3 +353,8 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
 
             elif type(pl) is MacroInv:
                 macro_inv_handle(curr.name + ' -> ' + raw_line.strip(), pl)
+            elif type(pl):
+                raise MacroError('-', f'Innappropriate usage of {pl}')
+
+    if type(stack[-1]) is not Global:
+        raise MacroError('-', 'Handling finished before quiting inner operation')

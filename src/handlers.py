@@ -89,6 +89,7 @@ def setup_handlers(mw: Ui_MainWindow):
             fpass = do_first_pass(mw.src.toPlainText())
             fpass.__next__()
             started = True
+            mw.src.setReadOnly(True)
 
         try:
             fpass.__next__()
@@ -163,6 +164,7 @@ def setup_handlers(mw: Ui_MainWindow):
         mw.vars.clear()
         mw.fp_res.clear()
         mw.sp_res.clear()
+        mw.src.setReadOnly(False)
         fpass = None
         started = False
         started_2 = False

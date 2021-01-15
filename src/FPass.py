@@ -43,6 +43,8 @@ def do_first_pass(src_lines: str):
             TMO.append(line)
         elif is_mend(line):
             level -= 1
+            if level < 0:
+                raise MacroError(i, 'inapropriate usage of mend')
             if level == 0:
                 is_rec = False
                 TIM[md.name] = (TIM.get(md.name)[0], TMO.__len__() - 1)
@@ -55,4 +57,7 @@ def do_first_pass(src_lines: str):
                 res_lines.append((i, line))
 
         line_ind += 1
+
+    if level > 0:
+        raise MacroError('-', f'mend is missing for {md.name}')
 
