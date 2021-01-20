@@ -134,6 +134,18 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
 
         elif type(curr) is MacroGen or type(curr) is If or type(curr) is While:
 
+            if type(curr) is MacroGen:
+                obs = stack[::-1]
+                num = 0
+                _name = obs[0].name
+                for k in obs[1:]:
+                    if type(k) is MacroGen:
+                        num += 1
+                        if num == 10:
+                            raise MacroError(_name, "Endless macro invokation")
+                    else:
+                        break
+
             try:
                 mg: MacroGen = curr
                 line = mg.body.pop(0)
