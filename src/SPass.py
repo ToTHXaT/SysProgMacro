@@ -25,6 +25,7 @@ class If(NamedTuple):
     status: bool
     body: List[str]
     labels: Dict[str, str]
+    level: int
 
 
 class While(NamedTuple):
@@ -159,52 +160,45 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
             pl = parse_line(line, TIM)
 
             if type(curr) is If:
-                if type(pl) is MacroElse:
-                    iff: If = stack.pop(-1)
-                    stack.append(If(curr.name + ' -> else', curr.vars, not curr.status, curr.body, {}))
-                    continue
-
-                elif type(pl) is MacroEndif:
-                    stack.pop(-1)
-                    continue
-
                 if not curr.status:
+                    if curr.level > 1:
+                        if type(pl) is MacroIf:
+                            iff: If = stack.pop(-1)
+                            stack.append(If(curr.name, curr.vars, curr.status, curr.body, curr.labels, curr.level + 1))
+                            continue
+
+                        elif type(pl) is MacroElse:
+                            continue
+
+                        elif type(pl) is MacroEndif:
+                            iff: If = stack.pop(-1)
+                            stack.append(If(curr.name, curr.vars, curr.status, curr.body, curr.labels, curr.level - 1))
+                            continue
+                    else:
+                        if type(pl) is MacroIf:
+                            iff: If = stack.pop(-1)
+                            stack.append(If(curr.name, curr.vars, curr.status, curr.body, curr.labels, curr.level + 1))
+                            continue
+
+                        elif type(pl) is MacroElse:
+                            iff: If = stack.pop(-1)
+                            stack.append(If(curr.name + ' -> else', curr.vars, not curr.status, curr.body, {}, curr.level))
+                            continue
+
+                        elif type(pl) is MacroEndif:
+                            stack.pop(-1)
+                            continue
+
                     continue
+                else:
+                    if type(pl) is MacroElse:
+                        iff: If = stack.pop(-1)
+                        stack.append(If(curr.name + ' -> else', curr.vars, not curr.status, curr.body, {}, curr.level))
+                        continue
 
-            elif type(curr) is While:
-                if type(pl) is MacroWend:
-                    whl: While = curr
-
-                    vals = {}
-                    for el in stack:
-                        vals.update(el.vars)
-
-                    _line = ' ' + whl.condition + ' '
-
-                    if _line.strip().__len__() == 0:
-                        raise MacroError(f'{curr.name} -> {raw_line.strip()}', f'No expression on while statement')
-
-                    for k, v in vals.items():
-                        _line = re.sub(rf'(?<=\W)\${k}(?=\W?|\Z)', f'MyNum({v.__repr__()})', _line, re.MULTILINE)
-
-                    try:
-                        result = eval(_line)
-                    except Exception as e:
-                        raise MacroError(f'{curr.name} -> {raw_line.strip()}', str(e))
-
-                    stack.pop(-1)
-
-                    if result:
-                        if whl.iterations.get('num') == 1000:
-                            raise MacroError(f'{curr.name} -> {raw_line.strip()}', f'Potentially infinite loop detected')
-                        stack.append(
-                            While(whl.name, whl.condition, whl.vars, result,
-                                  whl.copy_body[:], whl.copy_body, {}, {'num': whl.iterations.get('num') + 1})
-                        )
-                    continue
-
-                if not curr.status:
-                    continue
+                    elif type(pl) is MacroEndif:
+                        stack.pop(-1)
+                        continue
 
             if type(pl) is MacroSet:
                 ms: MacroSet = pl
@@ -330,7 +324,7 @@ def do_second_pass(src_lines: List[Tuple[int, str]]):
                 except Exception as e:
                     raise MacroError(f'{curr.name} -> {raw_line.strip()}', 'Type error')
 
-                stack.append(If(stack[-1].name + f' -> {raw_line.strip()}', {}, result, stack[-1].body, {}))
+                stack.append(If(stack[-1].name + f' -> {raw_line.strip()}', {}, result, stack[-1].body, {}, 1))
 
             elif type(pl) is MacroWhile:
                 whl: MacroWhile = pl

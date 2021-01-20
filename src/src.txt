@@ -1,8 +1,8 @@
-m1 11, 20, d=5
+m1 a=11, b=20, d=5
 
-m1 macro a, b, d=
+m1 macro a=, b=, d=
     mov $a, $b
-    m2 macro c
+    m2 macro c=
         word $d
         byte $c
     mend
@@ -16,17 +16,5 @@ m1 macro a, b, d=
         jmp l2
     endif
     mov $b, $a
-    m2 "Hello, world from m2"
+    m2 c="Hello, world from m2"
 mend
-
-
-mm1 macro a
-    while $a < 10
-
-        l1 byte $a
-
-        inc a
-    wend
-mend
-
-mm1 0
